@@ -18,13 +18,42 @@
       console.log(zrender.version)
     },
     mounted() {
+      // 给浏览器窗体添加尺寸改变的监听
+      window.onresize = this.handleResize
       // 初始化ZRender实例
       this.zr = zrender.init(document.querySelector('.draw-container'))
       // 创建一个Group实例 然后再Group组实例添加到画布上 以后创建的形状都添加到这个Group实例中
       this.group = new zrender.Group()
       // 将Group实例添加到画布中
       this.zr.add(this.group)
-
+      // 给zrender实例添加鼠标滚轮滚动事件
+      this.zr.on('mousewheel', this.throttle(e => {
+        let {wheelDelta} = e
+        // 获取当Group实例当前的scaleX&scaleY
+        let {scaleX, scaleY} = this.group
+        // 获取当前画布的中心点坐标
+        let mapWidth = this.zr.getWidth()
+        let mapHeight = this.zr.getHeight()
+        // 放大的时候每次比之前大0.1倍 缩小的时候每次比之前小0.1倍
+        // js里小数的计算不管加减都会有精度问题 所以先将数字转换成扩大十倍然后再缩小十倍 这样就不会出现精度问题了
+        if (wheelDelta > 0) {
+          // 向上滚动(放大画布)
+          this.group.attr({
+            scaleX: (scaleX * 10 + 1) / 10,
+            scaleY: (scaleY * 10 + 1) / 10,
+            originX: mapWidth / 2,
+            originY: mapHeight / 2
+          })
+        } else if (wheelDelta < 0) {
+          // 向下滚动(缩小画布)
+          this.group.attr({
+            scaleX: (scaleX * 10 - 1) / 10 > 0.1 ? (scaleX * 10 - 1) / 10 : 0.1,
+            scaleY: (scaleY * 10 - 1) / 10 > 0.1 ? (scaleY * 10 - 1) / 10 : 0.1,
+            originX: mapWidth / 2,
+            originY: mapHeight / 2
+          })
+        }
+      }, 50))
     },
     data() {
       return {
@@ -53,6 +82,24 @@
       }
     },
     methods: {
+      //节流：频繁触发的事件，保证每次只在固定的时间间隔内处理一次
+      throttle(fn, delay) {
+        let flag = true
+        return function (...args) {
+          if (flag) {
+            flag = false
+            setTimeout(() => {
+              fn.apply(this, args)
+              flag = true
+            }, delay)
+          }
+        }
+      },
+      // 容器尺寸发生改变
+      handleResize() {
+        // 动态调整画布的尺寸
+        this.zr.resize()
+      },
       // 统一的画形状的函数
       drawShape(opts) {
         let {color, lineWidth, lineDash, shapeIndex} = this
@@ -79,8 +126,8 @@
           let {x1, y1, x2, y2} = opts
           return this.drawRect({
             x: x1, y: y1,
-            width: x2 - x1,
-            height: y2 - y1,
+            width: Math.abs(x2 - x1),
+            height: Math.abs(y2 - y1),
             color, lineWidth, lineDash
           })
         }

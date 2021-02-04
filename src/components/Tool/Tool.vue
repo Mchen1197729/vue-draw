@@ -56,9 +56,9 @@
       // 选择形状
       handleChooseShape(shapeIndex) {
         if (this.shapeIndex === shapeIndex) {
-          this.$store.dispatch('shape/chooseShapeIndex', 0)
+          this.$store.dispatch('shape/setShapeIndex', 0)
         } else {
-          this.$store.dispatch('shape/chooseShapeIndex', shapeIndex)
+          this.$store.dispatch('shape/setShapeIndex', shapeIndex)
         }
       }
     },

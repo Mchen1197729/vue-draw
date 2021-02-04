@@ -8,12 +8,12 @@ export default {
     shapeIndex: 0
   },
   actions: {
-    chooseShapeIndex({commit}, shapeIndex) {
-      commit('CHOOSE_SHAPE_INDEX', shapeIndex)
+    setShapeIndex({commit}, shapeIndex) {
+      commit('SET_SHAPE_INDEX', shapeIndex)
     }
   },
   mutations: {
-    CHOOSE_SHAPE_INDEX(state, shapeIndex) {
+    SET_SHAPE_INDEX(state, shapeIndex) {
       state.shapeIndex = shapeIndex
     }
   }
