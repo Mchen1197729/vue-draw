@@ -31,6 +31,7 @@
     height: 100%;
 
     .main-section {
+      user-select: none;
       height: calc(100% - @headerHeight);
       display: flex;
     }

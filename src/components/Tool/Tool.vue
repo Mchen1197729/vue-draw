@@ -15,7 +15,7 @@
                 @click="handleChooseShape(item.index)"
                 v-for="(item,cIndex) in shape"
                 :key="cIndex"
-                :class="{current:item.index===currentShapeIndex}"
+                :class="{current:item.index===shapeIndex}"
         >{{item.shapeName}}
         </div>
       </div>
@@ -24,6 +24,8 @@
 </template>
 
 <script>
+  import {mapGetters} from 'vuex'
+
   export default {
     name: "Tool",
     data() {
@@ -42,8 +44,6 @@
         ],
         // 当前的标签页的下标 --> 0对应`图元库` 1对应`图元管理`
         currentTabIndex: 0,
-        // 当前的形状的下标 --> 0未选择形状  1任意线  2水平线  3竖直线  4矩形  5圆形  6文字
-        currentShapeIndex: 0
       }
     },
     methods: {
@@ -54,14 +54,16 @@
         this.currentTabIndex = 1
       },
       // 选择形状
-      handleChooseShape(index) {
-        if (this.currentShapeIndex === index) {
-          this.currentShapeIndex = 0
+      handleChooseShape(shapeIndex) {
+        if (this.shapeIndex === shapeIndex) {
+          this.$store.dispatch('shape/chooseShapeIndex', 0)
         } else {
-          this.currentShapeIndex = index
+          this.$store.dispatch('shape/chooseShapeIndex', shapeIndex)
         }
       }
-    }
+    },
+    // shapeIndex 形状的下标 --> 0未选择形状  1任意线  2水平线  3竖直线  4矩形  5圆形  6文字
+    computed: mapGetters(['shapeIndex'])
   }
 </script>
 
