@@ -5,7 +5,7 @@
 
       </div>
       <div class="down-box">
-        <el-button size="small">打开文件</el-button>
+        <el-button @click="handleOpenFile" size="small">打开文件</el-button>
         <el-button @click="handleSaveFile" size="small">保存文件</el-button>
         <div class="color-box">
           <span class="title">颜色</span>
@@ -20,6 +20,7 @@
                   @change="handleChooseLineWidth"
                   :min="1" :max="10"></el-input-number>
         </div>
+        <el-button @click="handleTest" size="small">测试按钮</el-button>
       </div>
     </div>
     <div class="main-section">
@@ -53,6 +54,8 @@
            @contextmenu.prevent="handleContextmenu"
       ></div>
     </div>
+    <a href="" ref="downloadLink" v-show="false"></a>
+    <input @change="handleFileChange" ref="uploadLink" type="file" v-show="false">
   </div>
 </template>
 
@@ -74,6 +77,7 @@
       this.group = new zrender.Group()
       // 将Group实例添加到画布中
       this.zr.add(this.group)
+      this.drawRect({x: -100, y: -100, width: 200, height: 200, color: '#333', lineWidth: 1, lineDash: null})
       // 给zrender实例添加鼠标滚轮滚动事件
       this.zr.on('mousewheel', this.throttle(e => {
         let {wheelDelta} = e
@@ -154,6 +158,27 @@
       }
     },
     methods: {
+      handleTest() {
+        this.drawRect({
+          x: 195 * 0.4 * 0.4,
+          y: 110 * 0.4 * 0.4,
+          width: 200,
+          height: 200,
+          color: 'tomato',
+          lineWidth: 1,
+          lineDash: null
+        })
+      },
+      // 工具函数:还原鼠标的坐标对应于此时画布上的真实的坐标
+      reverseCoordinate1({x0, y0}) {
+        let {x, y, originX, originY, scaleX, scaleY} = this.group
+        return [(x0 - x - originX) / scaleX, (y0 - y - originY) / scaleY]
+      },
+      // 工具函数:还原鼠标在拖动时鼠标的点坐标到画布上真实的坐标
+      reverseCoordinate2({x0, y0}) {
+        let {x, y, originX, originY, scaleX, scaleY} = this.group
+        return [(x0 - x - originX) / scaleX, (y0 - y - originY) / scaleY]
+      },
       //节流：频繁触发的事件，保证每次只在固定的时间间隔内处理一次
       throttle(fn, delay) {
         let flag = true
@@ -172,15 +197,70 @@
         // 动态调整画布的尺寸
         this.zr.resize()
       },
+      // 工具函数:将用户手动选择的文件直接画在画布中
+      initDraw(obj) {
+        let {transform, children} = obj
+        children.forEach(({shapeIndex, shape, style, x, y, scaleX, scaleY, originX, originY}) => {
+          let {stroke: color, lineWidth, lineDash} = style
+          if (shapeIndex === 1) {
+            let {x1, y1, x2, y2} = shape
+            this.drawLine({x1, y1, x2, y2, color, lineWidth, lineDash})
+          } else if (shapeIndex === 4) {
+            let {x, y, width, height} = shape
+            this.drawRect({x, y, width, height, color, lineWidth, lineDash})
+          } else if (shapeIndex === 5) {
+            let {cx, cy, r} = shape
+            this.drawCircle({cx, cy, r, color, lineWidth, lineDash})
+          }
+          this.shape.attr({x, y, scaleX, scaleY, originX, originY})
+        })
+        // 进行Group的形变
+        this.group.attr({...transform})
+      },
+      // 触发隐藏的a链接点击事件 让浏览器保存文件
+      download(obj, filename) {
+        this.$refs.downloadLink.href = 'data:text/plain,' + encodeURIComponent(JSON.stringify(obj, null, 2))
+        this.$refs.downloadLink.download = filename
+        this.$refs.downloadLink.click()
+      },
+      // 触发隐藏的文件选择框的点击事件 让浏览器打开文件系统
+      upload() {
+        this.$refs.uploadLink.click()
+      },
+      // 文件选择框的文件改变事件
+      handleFileChange(e) {
+        let reader = new FileReader()
+        reader.onload = e1 => {
+          try {
+            let obj = JSON.parse(e1.target.result.toString())
+            this.initDraw(obj)
+            // 手动将文件选择框的值置空 避免下一次选择了同一个文件而不触发onchange事件监听
+            e.target.value = ''
+          } catch (_) {
+            console.log('文件格式错误')
+          }
+        }
+        reader.readAsText(e.target.files[0])
+      },
       // 统一的画形状的函数
       drawShape(opts) {
         let {shapeColor: color, shapeLineWidth: lineWidth, shapeLineDash: lineDash, shapeIndex} = this
+        // 获取当前的Group的形变信息
+        let {x, y, scaleX, scaleY, originX, originY} = this.group
         if (shapeIndex === 0) {
           return
         }
         if (shapeIndex === 1) {
           // 画任意线
           let {x1, y1, x2, y2} = opts
+          x1 = x1 / scaleX
+          x1 -= (x + originX)
+          y1 = y1 / scaleY
+          y1 -= (y + originY)
+          x2 = x2 / scaleX
+          x2 -= (x + originX)
+          y2 = y2 / scaleY
+          y2 -= (y + originY)
           return this.drawLine({x1, y1, x2, y2, color, lineWidth, lineDash})
         }
         if (shapeIndex === 2) {
@@ -220,12 +300,18 @@
       // 统一的修改形状样式的工具函数
       attrShape(opts) {
         let {shapeIndex} = this
+        // 获取当前的Group的形变信息
+        let {x, y, scaleX, scaleY, originX, originY} = this.group
         if (shapeIndex === 0) {
           return
         }
         let {x2, y2} = opts
         if (shapeIndex === 1) {
           // 修改任意线
+          x2 = x2 / scaleX
+          x2 -= (x + originX)
+          y2 = y2 / scaleY
+          y2 -= (y + originY)
           return this.shape.attr('shape', {x2, y2})
         }
         if (shapeIndex === 2) {
@@ -344,12 +430,16 @@
       handleChooseLineWidth(shapeLineWidth) {
         this.shapeLineWidth = shapeLineWidth
       },
+      // 打开文件
+      handleOpenFile() {
+        this.upload()
+      },
       // 保存文件
       handleSaveFile() {
-        let mapJson = {groupTransform: {}, children: []}
+        let mapJson = {transform: {}, children: []}
         // 得到Group的Transform变换信息
         let {x, y, scaleX, scaleY, originX, originY} = this.group
-        mapJson.groupTransform = {x, y, scaleX, scaleY, originX, originY}
+        mapJson.transform = {x, y, scaleX, scaleY, originX, originY}
         mapJson.children = this.group.children().map(child => {
           // shape是每个图形的坐标信息
           // shapeIndex是自定义的图形的类型(自定义的字典)
@@ -357,10 +447,14 @@
           // x, y, scaleX, scaleY, originX, originY是每个图形的Transform变换的信息
           let {shape, shapeIndex, style, x, y, scaleX, scaleY, originX, originY} = child
           return {
-            shape, shapeIndex, style, x, y, scaleX, scaleY, originX, originY
+            shapeIndex,
+            shape: Object.fromEntries(Object.entries(shape)),
+            style: Object.fromEntries(Object.entries(style)),
+            x, y, scaleX, scaleY, originX, originY
           }
         })
-        console.log(mapJson)
+        console.log(JSON.stringify(mapJson, null, 2))
+        this.download(mapJson, 'shape.json')
       },
       /*
       * 设定画图的规则:
@@ -439,7 +533,6 @@
         }
         if (this.idMiddleDown && this.isMapMoving) {
           // 鼠标中键被抬起则认为是进行画布整体的拖动操作
-          console.log('拖动画布结束')
           this.isMapMoving = false
           this.transitionEnd = [offsetX, offsetY]
           return
