@@ -67,11 +67,11 @@
           </div>
         </div>
       </div>
-      <div class="draw-container"
-           @mousedown="handleMouseDown"
-           @mousemove="handleMousemove"
-           @mouseup="handleMouseup"
-           @contextmenu.prevent="handleContextmenu"
+      <div
+          class="draw-container"
+          @mousedown="handleMouseDown"
+          @mousemove="handleMousemove"
+          @mouseup="handleMouseup"
       ></div>
     </div>
     <a href="" ref="downloadLink" v-show="false"></a>
@@ -221,8 +221,9 @@ export default {
     // 工具函数:还原鼠标的坐标对应于此时画布上的真实的坐标(利用transform对象)
     reverseCoordinate([x0, y0]) {
       let {scaleX, scaleY, transform} = this.group
-      let [m1, m2, m3, m4, m5, m6] = transform || [0, 0, 0, 0, 0, 0]
-      return [(x0 - m5) / scaleX, (y0 - m6) / scaleY]
+      // let [m1, m2, m3, m4, m5, m6] = transform || [0, 0, 0, 0, 0, 0]
+      if (!transform) return [x0 / scaleX, y0 / scaleY]
+      else return [(x0 - transform[4]) / scaleX, (y0 - transform[5]) / scaleY]
     },
     //节流:频繁触发的事件，保证每次只在固定的时间间隔内处理一次
     throttle(fn, delay) {
@@ -285,7 +286,7 @@ export default {
           // 手动将文件选择框的值置空 避免下一次选择了同一个文件而不触发onchange事件监听
           e.target.value = ''
         } catch (_) {
-          console.log('文件格式错误')
+          console.error('文件格式错误')
         }
       }
       reader.readAsText(e.target.files[0])
@@ -356,43 +357,34 @@ export default {
     // 统一的修改形状样式的工具函数
     attrShape(opts) {
       let {shapeIndex} = this
-      // 获取当前的Group的形变信息
-      let {x, y, scaleX, scaleY, originX, originY} = this.group
-      if (shapeIndex === 0) {
-        return
-      }
       let {x2, y2} = opts
       if (shapeIndex === 1) {
         // 修改任意线
         let [x22, y22] = this.reverseCoordinate([x2, y2])
-        return this.shape.attr('shape', {x2: x22, y2: y22})
-      }
-      if (shapeIndex === 2) {
+        this.shape.attr('shape', {x2: x22, y2: y22})
+      } else if (shapeIndex === 2) {
         // 修改水平线
         let {x1, y1} = this.shape.shape
         let [x22, y22] = this.reverseCoordinate([x2, y2])
-        return this.shape.attr('shape', {x2: x22, y2: y1})
-      }
-      if (shapeIndex === 3) {
+        this.shape.attr('shape', {x2: x22, y2: y1})
+      } else if (shapeIndex === 3) {
         // 修改竖直线
         let {x1, y1} = this.shape.shape
         let [x22, y22] = this.reverseCoordinate([x2, y2])
-        return this.shape.attr('shape', {x2: x1, y2: y22})
-      }
-      if (shapeIndex === 4) {
+        this.shape.attr('shape', {x2: x1, y2: y22})
+      } else if (shapeIndex === 4) {
         // 修改矩形
         let {x, y} = this.shape.shape
         let [x22, y22] = this.reverseCoordinate([x2, y2])
-        return this.shape.attr('shape', {
+        this.shape.attr('shape', {
           width: x22 - x,
           height: y22 - y
         })
-      }
-      if (shapeIndex === 5) {
+      } else if (shapeIndex === 5) {
         // 修改圆形
         let {cx, cy} = this.shape.shape
         let [x22, y22] = this.reverseCoordinate([x2, y2])
-        return this.shape.attr('shape', {
+        this.shape.attr('shape', {
           r: Math.sqrt((x22 - cx) ** 2 + (y22 - cy) ** 2)
         })
       }
@@ -575,7 +567,6 @@ export default {
           x, y, scaleX, scaleY, originX, originY
         }
       })
-      console.log(JSON.stringify(mapJson, null, 2))
       this.download(mapJson, 'shape.json')
     },
     // 清空画布
@@ -600,57 +591,53 @@ export default {
     *     2.3 按下鼠标右键 --> 取消画图(移除刚刚添加的形状)
     * */
     // 监听画布容器的鼠标按下事件
-    // e.offsetX:鼠标按下的点距离画布容器左上角的横向的距离
-    // e.offsetY:鼠标按下的点距离画布容器左上角的纵向的距离
+    // e.zrX:鼠标按下的点距离画布容器左上角的横向的距离
+    // e.zrY:鼠标按下的点距离画布容器左上角的纵向的距离
     // e.button 0鼠标左键 1鼠标中键 2鼠标右键
     handleMouseDown(e) {
-      const {button, offsetX, offsetY} = e
+      const {button, zrX, zrY} = e
       this.button = button
       // 如果是鼠标中键按下
       if (this.isLeftDown) {
-        this.downDot = [offsetX, offsetY]
-        return
-      }
-      if (this.idMiddleDown) {
+        this.downDot = [zrX, zrY]
+      } else if (this.idMiddleDown) {
         // 鼠标中间按下则认为是进行画布整体的拖动操作
         this.isMapMoving = true
         // 获取当前Group的位移的值
         let oldX = this.group.x || 0
         let oldY = this.group.y || 0
-        this.transitionStart = [offsetX - oldX, offsetY - oldY]
-        return
+        this.transitionStart = [zrX - oldX, zrY - oldY]
       }
     },
     // 监听画布容器的鼠标移动事件
     handleMousemove(e) {
-      const {button, offsetX, offsetY} = e
+      const {button, zrX, zrY} = e
       // 判断形状的起点是否已经确定好了
       if (this.isShapeStart && button === 0) {
         this.isShapeEditing = true
+        // 此处应该创建一个事件队列 将频繁触发的鼠标移动事件塞进事件队列中 然后再按先进先出的原则去调用this.attrShape()方法来修改形状的属性
+        // Todo...
         // 修改形状的样式
-        this.attrShape({x2: offsetX, y2: offsetY})
-        return
-      }
-      if (this.idMiddleDown && this.isMapMoving) {
+        this.attrShape({x2: zrX, y2: zrY})
+      } else if (this.idMiddleDown && this.isMapMoving) {
         // 鼠标中键被按下并且并且移动鼠标则认为是进行画布整体的拖动操作
         this.isMapMoving = true
-        this.transitionEnd = [offsetX, offsetY]
+        this.transitionEnd = [zrX, zrY]
         let [x1, y1] = this.transitionStart
-        this.translateGroup({x: offsetX - x1, y: offsetY - y1})
-        return
+        this.translateGroup({x: zrX - x1, y: zrY - y1})
       }
     },
     // 监听画布容器的鼠标抬起事件
     handleMouseup(e) {
-      const {button, offsetX, offsetY} = e
+      const {button, zrX, zrY} = e
       // 如果是鼠标左键抬起
       if (this.isLeftDown) {
-        this.upDot = [offsetX, offsetY]
+        this.upDot = [zrX, zrY]
         // 判断形状的起点是否已经确定好了
         let [downDotX, downDotY] = this.downDot
         let [upDotX, upDotY] = this.upDot
         // 鼠标左键按下和抬起的点必须非常近才可以视作确定形状的起点
-        if (downDotX - upDotX >= -2 && downDotX - upDotX <= 2 && downDotY - upDotY >= -2 && downDotY - upDotY <= 2) {
+        if (Math.abs(downDotX - upDotX) <= 1 && Math.abs(downDotY - upDotY) <= 1) {
           this.isShapeStart = true
         }
         // 判断是否是确定终点的操作
@@ -660,13 +647,10 @@ export default {
           //确定终点
           this.isShapeDone = true
         }
-        return
-      }
-      if (this.idMiddleDown && this.isMapMoving) {
+      } else if (this.idMiddleDown && this.isMapMoving) {
         // 鼠标中键被抬起则认为是进行画布整体的拖动操作
         this.isMapMoving = false
-        this.transitionEnd = [offsetX, offsetY]
-        return
+        this.transitionEnd = [zrX, zrY]
       }
     },
     // 处理鼠标右键事件
