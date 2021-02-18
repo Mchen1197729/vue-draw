@@ -1,9 +1,9 @@
 <template>
   <div class="container">
     <div class="header-container">
-     <!-- <div v-show="false" class="up-box">
+      <!-- <div v-show="false" class="up-box">
 
-      </div>-->
+       </div>-->
       <div class="down-box">
         <el-button @click="handleOpenFile" size="small">打开文件</el-button>
         <el-button @click="handleSaveFile" size="small">保存文件</el-button>
@@ -115,9 +115,7 @@
       // 给浏览器窗体添加尺寸改变的监听
       window.onresize = this.handleResize
       // 初始化ZRender实例
-      this.zr = zrender.init( document.querySelector('.draw-container'), {
-        renderer: 'canvas'
-      })
+      this.zr = zrender.init(document.querySelector('.draw-container'))
       // 创建一个Group实例 然后再Group组实例添加到画布上 以后创建的形状都添加到这个Group实例中
       this.group = new zrender.Group()
       // 将Group实例添加到画布中
@@ -228,7 +226,7 @@
       }
     },
     methods: {
-      handleTest(){
+      handleTest() {
         console.log(this.zr.painter.getSvgDom())
       },
       // 点击删除图元
