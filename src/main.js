@@ -6,6 +6,7 @@ import 'element-ui/lib/theme-chalk/index.css'
 import 'normalize.css/normalize.css'
 import './style/index.less'
 
+
 Vue.use(ElementUI)
 Vue.config.productionTip = false
 

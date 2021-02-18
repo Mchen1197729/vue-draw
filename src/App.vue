@@ -101,8 +101,8 @@
 </template>
 
 <script>
-  // zrender@5.0.4版本需要这么写
-  import * as zrender from 'zrender'
+  // zrender@5.0.4版本需要这么写 否则生产版本会在初始化zrender实例的时候报错
+  const zrender = require('zrender')
 
   export default {
     name: 'App',
